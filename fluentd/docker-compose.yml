@@ -1,0 +1,75 @@
+version: '3.5'
+
+services:
+  oap:
+    image: apache/skywalking-oap-server:8.6.0-es7
+    networks:
+      - lal
+    ports:
+      - 11800:11800
+      - 12800:12800
+    environment:
+      SW_STORAGE: h2
+      SW_HEALTH_CHECKER: default
+      SW_TELEMETRY: prometheus
+    healthcheck:
+      test: [ "CMD", "./bin/swctl", "ch" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  ui:
+    image: apache/skywalking-ui:8.6.0
+    networks:
+      - lal
+    depends_on:
+      oap:
+        condition: service_healthy
+    ports:
+      - 8080:8080
+    environment:
+      SW_OAP_ADDRESS: http://oap:12800
+    healthcheck:
+      test: [ "CMD", "bash", "-c", "cat < /dev/null > /dev/tcp/127.0.0.1/8080" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  fluentd:
+    image: bitnami/fluentd:1.12.1
+    networks:
+      - lal
+    volumes:
+      - ./fluentd.conf:/opt/bitnami/fluentd/conf/fluentd.conf
+      - logs:/logs
+    healthcheck:
+      test: ["CMD", "bash", "-c", "cat < /dev/null > /dev/tcp/127.0.0.1/24220"]
+      interval: 5s
+      timeout: 60s
+      retries: 120
+    depends_on:
+      oap:
+        condition: service_healthy
+
+  traffic:
+    image: alpine:3
+    networks:
+      - lal
+    entrypoint: [ "/bin/sh", "-c" ]
+    volumes:
+      - logs:/logs
+    command:
+      - |
+        while true
+        do
+          echo "[INFO] $$(date +%s)000 [http-nio-0.0.0.0-9999-exec-2] org.example.apachecon.lal.LogController:14 - this is a test log by logback, stored in file" >> /logs/app.log
+          sleep 3
+        done
+
+networks:
+  lal:
+
+volumes:
+  logs:

@@ -1,0 +1,36 @@
+http.enabled: true
+
+filebeat.inputs:
+  - type: log
+    enabled: true
+    paths:
+      - /logs/app.log
+
+processors:
+  - add_fields:
+      target: ''
+      fields:
+        service: lal-filebeat
+        serviceInstance: lal-filebeat-instance
+
+  - dissect:
+      tokenizer: '[%{level}] %{timestamp} [%{thread}] %{logger}:%{line} - %{body}'
+      field: "message"
+      target_prefix: ""
+      trim_values: all
+      overwrite_keys: true
+
+  - rename:
+      fields:
+        - from: "body"
+          to: "body.text.text"
+      ignore_missing: false
+      fail_on_error: true
+
+  - drop_fields:
+      fields: ["ecs", "host", "input", "agent", "log", "message"]
+
+output:
+  kafka:
+    hosts: [ "kafka:9092" ]
+    topic: "skywalking-logs-json"

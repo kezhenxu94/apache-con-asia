@@ -1,0 +1,6 @@
+rootProject.name = 'apachecon-asia-lal'
+include 'log4j'
+include 'log4j2'
+include 'logback'
+include 'filebeat'
+include 'fluentd'

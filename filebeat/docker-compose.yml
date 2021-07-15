@@ -1,0 +1,85 @@
+version: '3.5'
+
+services:
+  oap:
+    image: apache/skywalking-oap-server:8.6.0-es7
+    networks:
+      - lal
+    ports:
+      - 11800:11800
+      - 12800:12800
+    environment:
+      SW_STORAGE: h2
+      SW_KAFKA_FETCHER: default
+      SW_KAFKA_FETCHER_SERVERS: kafka:9092
+      SW_KAFKA_FETCHER_PARTITIONS: 2
+      SW_KAFKA_FETCHER_PARTITIONS_FACTOR: 1
+      SW_KAFKA_FETCHER_ENABLE_NATIVE_PROTO_LOG: "true"
+      SW_KAFKA_FETCHER_ENABLE_NATIVE_JSON_LOG: "true"
+      SW_HEALTH_CHECKER: default
+      SW_TELEMETRY: prometheus
+    healthcheck:
+      test: [ "CMD", "./bin/swctl", "ch" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  ui:
+    image: apache/skywalking-ui:8.6.0
+    networks:
+      - lal
+    depends_on:
+      oap:
+        condition: service_healthy
+    ports:
+      - 8080:8080
+    environment:
+      SW_OAP_ADDRESS: http://oap:12800
+    healthcheck:
+      test: [ "CMD", "bash", "-c", "cat < /dev/null > /dev/tcp/127.0.0.1/8080" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  filebeat:
+    image: elastic/filebeat:7.12.0
+    command: -e --strict.perms=false
+    networks:
+      - lal
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - logs:/logs
+    healthcheck:
+      test: [ "CMD", "bash", "-c", "cat < /dev/null > /dev/tcp/127.0.0.1/5066" ]
+      interval: 5s
+      timeout: 60s
+      retries: 120
+    depends_on:
+      oap:
+        condition: service_healthy
+
+  traffic:
+    image: alpine:3
+    networks:
+      - lal
+    entrypoint: [ "/bin/sh", "-c" ]
+    volumes:
+      - logs:/logs
+    command:
+      - |
+        while true
+        do
+          echo "[INFO] $$(date +%s)000 [http-nio-0.0.0.0-9999-exec-2] org.example.apachecon.lal.LogController:14 - this is a test log by logback, stored in file" >> /logs/app.log
+          sleep 3
+        done
+
+networks:
+  lal:
+
+volumes:
+  logs:

@@ -1,0 +1,40 @@
+version: '3.5'
+
+services:
+  zookeeper:
+    image: zookeeper:3.4
+    hostname: zookeeper
+    expose:
+      - 2181
+    networks:
+      - lal
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    healthcheck:
+      test: [ "CMD", "sh", "-c", "nc -nz 127.0.0.1 2181" ]
+      interval: 5s
+      timeout: 60s
+      retries: 120
+
+  kafka:
+    image: bitnami/kafka:2.4.1
+    hostname: broker-a
+    expose:
+      - 9092
+    networks:
+      - lal
+    environment:
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_BROKER_ID=10
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "kafka-topics.sh", "--list", "--zookeeper", "zookeeper:2181" ]
+      interval: 5s
+      timeout: 60s
+      retries: 120
+
+networks:
+  lal:

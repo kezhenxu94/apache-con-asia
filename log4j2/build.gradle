@@ -1,0 +1,29 @@
+plugins {
+    id 'org.springframework.boot' version '2.5.0'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'java'
+    id 'com.avast.gradle.docker-compose' version '0.7.1'
+}
+
+repositories {
+    mavenCentral()
+}
+
+configurations {
+    all {
+        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+    }
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-log4j2'
+    implementation 'org.apache.skywalking:apm-toolkit-log4j-2.x:8.6.0'
+}
+
+dockerCompose {
+    useComposeFiles = ['docker-compose.yml']
+}
+
+composeUp.dependsOn project.build
